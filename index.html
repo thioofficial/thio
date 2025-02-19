@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thio - התחברות / הרשמה</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="login-container">
+        <h2>התחברות ל-Thio</h2>
+        <input type="text" id="login-username" placeholder="שם משתמש">
+        <input type="password" id="login-password" placeholder="סיסמה">
+        <button onclick="login()">התחבר</button>
+        <p>אין לך חשבון? <a href="#" onclick="showRegister()">הירשם כאן</a></p>
+        <p>שכחת את הסיסמה? <a href="resetpassword.html">אפס סיסמה</a></p>
+    </div>
+
+    <div id="register-container" style="display: none;">
+        <h2>הרשמה ל-Thio</h2>
+        <input type="text" id="reg-username" placeholder="שם משתמש">
+        <input type="password" id="reg-password" placeholder="סיסמה">
+        <input type="text" id="reg-secret-question" placeholder="שאלה סודית (למשל: שם חיית מחמד)">
+        <input type="text" id="reg-secret-answer" placeholder="תשובה לשאלה הסודית">
+        <button onclick="register()">הירשם</button>
+        <p>כבר יש לך חשבון? <a href="#" onclick="showLogin()">התחבר כאן</a></p>
+    </div>
+
+    <script>
+        function getUsers() {
+            return JSON.parse(localStorage.getItem('users')) || {};
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+
+        function register() {
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const secretQuestion = document.getElementById('reg-secret-question').value.trim();
+            const secretAnswer = document.getElementById('reg-secret-answer').value.trim();
+
+            if (!username || !password || !secretQuestion || !secretAnswer) {
+                alert('יש למלא את כל השדות');
+                return;
+            }
+
+            let users = getUsers();
+
+            if (users[username]) {
+                alert('שם המשתמש כבר קיים');
+            } else {
+                users[username] = { password, secretQuestion, secretAnswer };
+                saveUsers(users);
+                alert('ההרשמה הצליחה! כעת ניתן להתחבר.');
+                showLogin();
+            }
+        }
+
+        function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            let users = getUsers();
+
+            if (users[username] && users[username].password === password) {
+                localStorage.setItem('loggedIn', 'true');
+                localStorage.setItem('currentUser', username);
+                window.location.href = 'home.html';
+            } else {
+                alert('שם משתמש או סיסמה שגויים');
+            }
+        }
+
+        function showRegister() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('register-container').style.display = 'block';
+        }
+
+        function showLogin() {
+            document.getElementById('register-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
