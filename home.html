@@ -1,6 +1,9 @@
 <div id="user-name-container">
     <p>שלום, <span id="username"></span></p>
-    <button onclick="addFriend()">הוסף חבר</button>
+    <button onclick="sendFriendRequest()">שלח בקשת חברות</button>
+    <div id="pending-requests-container">
+        <!-- בקשות חברות בהמתנה יופיעו כאן -->
+    </div>
 </div>
 
 <div id="chat-container">
@@ -33,22 +36,79 @@ const db = firebase.database();
 const username = localStorage.getItem('currentUser');
 document.getElementById('username').textContent = username;
 
+// שליחת בקשת חברות
+function sendFriendRequest() {
+    const friendName = prompt("הכנס את שם החבר לשלוח לו בקשת חברות:");
+    if (friendName) {
+        // שמירת בקשת החברות ב-Firebase
+        db.ref("pending_requests/" + friendName).push({
+            from: username,
+            status: 'pending' // סטטוס הבקשה - בהמתנה
+        });
+
+        alert("בקשת החברות נשלחה ל-" + friendName);
+    }
+}
+
+// הצגת בקשות חברות בהמתנה
+function displayPendingRequests() {
+    db.ref("pending_requests/" + username).on("child_added", function(snapshot) {
+        const data = snapshot.val();
+        const requestContainer = document.createElement('div');
+        requestContainer.classList.add('request');
+
+        requestContainer.innerHTML = `<strong>בקשה מחבר:</strong> ${data.from} 
+                                      <button onclick="acceptRequest('${data.from}')">אשר</button>
+                                      <button onclick="declineRequest('${data.from}')">דחה</button>`;
+        document.getElementById('pending-requests-container').appendChild(requestContainer);
+    });
+}
+
+// קבלת בקשה לאישור
+function acceptRequest(friendName) {
+    // הוספת החבר לרשימת החברים
+    db.ref("users/" + username + "/friends").push(friendName);
+    db.ref("users/" + friendName + "/friends").push(username);
+
+    // עדכון הסטטוס של הבקשה ב-Firebase
+    db.ref("pending_requests/" + friendName).once("value", function(snapshot) {
+        snapshot.forEach(function(childSnapshot) {
+            childSnapshot.ref.update({ status: 'accepted' });
+        });
+    });
+
+    alert(friendName + " אושר כחבר!");
+
+    // ניתן להתחיל צ'אט עם החבר
+    localStorage.setItem('chatWith', friendName);
+    listenToMessages(friendName);
+}
+
+// דחיית בקשה
+function declineRequest(friendName) {
+    db.ref("pending_requests/" + friendName).once("value", function(snapshot) {
+        snapshot.forEach(function(childSnapshot) {
+            childSnapshot.ref.remove();
+        });
+    });
+
+    alert("הבקשה מ-" + friendName + " נדחתה.");
+}
+
 // שליחת הודעה
 function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const message = messageInput.value.trim();
 
-    const recipient = localStorage.getItem('chatWith'); // קח את שם המשתמש של החבר שבחרת לצ'אט
+    const recipient = localStorage.getItem('chatWith'); // קח את שם המשתמש של החבר
 
     if (message && recipient) {
-        // שמירת ההודעה עם השם של המשתמש ושל החבר
         db.ref("messages/" + username + "/" + recipient).push({
             user: username,
             text: message,
             timestamp: Date.now()
         });
 
-        // שמירת ההודעה גם מצד החבר
         db.ref("messages/" + recipient + "/" + username).push({
             user: username,
             text: message,
@@ -59,14 +119,13 @@ function sendMessage() {
     }
 }
 
-// האזנה להודעות חדשות והצגתן בזמן אמת
+// האזנה להודעות
 function listenToMessages(friend) {
-    // האזנה להודעות שבאות מצד חבר
     db.ref("messages/" + username + "/" + friend).on("child_added", function(snapshot) {
         const data = snapshot.val();
         const messageContainer = document.createElement('div');
         messageContainer.classList.add('message');
-
+        
         if (data.user === username) {
             messageContainer.classList.add('my-message');
         }
@@ -75,12 +134,11 @@ function listenToMessages(friend) {
         document.getElementById('messages-container').appendChild(messageContainer);
     });
 
-    // האזנה להודעות שבאות מצד המשתמש הזה
     db.ref("messages/" + friend + "/" + username).on("child_added", function(snapshot) {
         const data = snapshot.val();
         const messageContainer = document.createElement('div');
         messageContainer.classList.add('message');
-
+        
         if (data.user === username) {
             messageContainer.classList.add('my-message');
         }
@@ -90,19 +148,6 @@ function listenToMessages(friend) {
     });
 }
 
-// הוספת חברים
-function addFriend() {
-    const friendName = prompt("הכנס את שם החבר להוספה:");
-    if (friendName) {
-        // הוספת החבר לרשימה ב-Firebase
-        db.ref("users/" + username + "/friends").push(friendName);
-
-        // שמירת שם החבר ב-localStorage
-        localStorage.setItem('chatWith', friendName);
-        alert(friendName + " נוסף לחברים שלך!");
-
-        // להתחיל להאזין להודעות עם החבר החדש
-        listenToMessages(friendName);
-    }
-}
+// הצגת בקשות חברות בהמתנה כאשר הדף נטען
+displayPendingRequests();
 </script>
