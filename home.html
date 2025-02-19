@@ -1,0 +1,108 @@
+<div id="user-name-container">
+    <p>שלום, <span id="username"></span></p>
+    <button onclick="addFriend()">הוסף חבר</button>
+</div>
+
+<div id="chat-container">
+    <div id="messages-container">
+        <!-- הודעות יופיעו כאן -->
+    </div>
+    <div id="input-container">
+        <input type="text" id="message-input" placeholder="כתוב הודעה...">
+        <button onclick="sendMessage()">שלח</button>
+    </div>
+</div>
+
+<script>
+// אתחול Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyB8XTXlPNkNwl6aeNwxAKA4mLEfBGYHeU0",
+    authDomain: "thio-a1b36.firebaseapp.com",
+    projectId: "thio-a1b36",
+    storageBucket: "thio-a1b36.firebasestorage.app",
+    messagingSenderId: "900482528603",
+    appId: "1:900482528603:web:d520800e59d5a3664f967e",
+    measurementId: "G-Z7BR51Q2XF"
+};
+
+// אתחול של Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// שם המשתמש הנוכחי
+const username = localStorage.getItem('currentUser');
+document.getElementById('username').textContent = username;
+
+// שליחת הודעה
+function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+
+    const recipient = localStorage.getItem('chatWith'); // קח את שם המשתמש של החבר שבחרת לצ'אט
+
+    if (message && recipient) {
+        // שמירת ההודעה עם השם של המשתמש ושל החבר
+        db.ref("messages/" + username + "/" + recipient).push({
+            user: username,
+            text: message,
+            timestamp: Date.now()
+        });
+
+        // שמירת ההודעה גם מצד החבר
+        db.ref("messages/" + recipient + "/" + username).push({
+            user: username,
+            text: message,
+            timestamp: Date.now()
+        });
+
+        messageInput.value = ''; // ריקון השדה אחרי שליחה
+    }
+}
+
+// האזנה להודעות חדשות והצגתן בזמן אמת
+function listenToMessages(friend) {
+    // האזנה להודעות שבאות מצד חבר
+    db.ref("messages/" + username + "/" + friend).on("child_added", function(snapshot) {
+        const data = snapshot.val();
+        const messageContainer = document.createElement('div');
+        messageContainer.classList.add('message');
+
+        if (data.user === username) {
+            messageContainer.classList.add('my-message');
+        }
+
+        messageContainer.innerHTML = `<strong>${data.user}:</strong> ${data.text}`;
+        document.getElementById('messages-container').appendChild(messageContainer);
+    });
+
+    // האזנה להודעות שבאות מצד המשתמש הזה
+    db.ref("messages/" + friend + "/" + username).on("child_added", function(snapshot) {
+        const data = snapshot.val();
+        const messageContainer = document.createElement('div');
+        messageContainer.classList.add('message');
+
+        if (data.user === username) {
+            messageContainer.classList.add('my-message');
+        }
+
+        messageContainer.innerHTML = `<strong>${data.user}:</strong> ${data.text}`;
+        document.getElementById('messages-container').appendChild(messageContainer);
+    });
+}
+
+// הוספת חברים
+function addFriend() {
+    const friendName = prompt("הכנס את שם החבר להוספה:");
+    if (friendName) {
+        // הוספת החבר לרשימה ב-Firebase
+        db.ref("users/" + username + "/friends").push(friendName);
+
+        // שמירת שם החבר ב-localStorage
+        localStorage.setItem('chatWith', friendName);
+        alert(friendName + " נוסף לחברים שלך!");
+
+        // להתחיל להאזין להודעות עם החבר החדש
+        listenToMessages(friendName);
+    }
+}
+</script>
